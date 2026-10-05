@@ -1,0 +1,16 @@
+run_name: smoke
+models:
+  - name: deepseek-chat
+    base_url: https://api.deepseek.com
+    env_key: LLM_API_KEY
+    temperature: 0.7
+problems:
+  - name: tsp
+    scales: [small]
+instances_per_scale: 1
+repeats: 1
+max_iters: 2
+budget:
+  max_calls: 3
+  max_tokens: 20000
+  max_seconds: 120

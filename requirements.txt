@@ -1,0 +1,7 @@
+openai>=1.40
+ortools>=9.8
+pyyaml>=6.0
+python-dotenv>=1.0
+pandas>=2.0
+matplotlib>=3.8
+pytest>=8.0
