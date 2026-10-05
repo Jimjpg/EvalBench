@@ -87,18 +87,28 @@ def solve_once(problem, inst, llm, reference, budget_cfg, max_iters=5):
 
 
 class Runner:
-    def __init__(self, config_path, out_root="results"):
+    def __init__(self, config_path, out_root="results", run_id=None):
         with open(config_path, encoding="utf-8") as f:
             self.cfg = yaml.safe_load(f)
-        self.run_id = (datetime.now().strftime("%Y%m%d-%H%M%S")
-                       + "-" + uuid.uuid4().hex[:6])
-        self.out_dir = os.path.join(out_root, self.run_id)
-        os.makedirs(os.path.join(self.out_dir, "transcripts"), exist_ok=True)
-        with open(os.path.join(self.out_dir, "config.yaml"), "w",
-                  encoding="utf-8") as f:
-            yaml.safe_dump(self.cfg, f, allow_unicode=True)
+        if run_id:
+            self.run_id = run_id
+            self.out_dir = os.path.join(out_root, run_id)
+            if not os.path.isdir(self.out_dir):
+                raise FileNotFoundError(f"待续跑目录不存在: {self.out_dir}")
+            os.makedirs(os.path.join(self.out_dir, "transcripts"), exist_ok=True)
+        else:
+            self.run_id = (datetime.now().strftime("%Y%m%d-%H%M%S")
+                           + "-" + uuid.uuid4().hex[:6])
+            self.out_dir = os.path.join(out_root, self.run_id)
+            os.makedirs(os.path.join(self.out_dir, "transcripts"), exist_ok=True)
+            with open(os.path.join(self.out_dir, "config.yaml"), "w",
+                      encoding="utf-8") as f:
+                yaml.safe_dump(self.cfg, f, allow_unicode=True)
 
     def _manifest(self):
+        mpath = os.path.join(self.out_dir, "manifest.json")
+        if os.path.exists(mpath):
+            return  # 续跑保留原始 provenance，不覆盖
         try:
             rev = subprocess.run(
                 ["git", "rev-parse", "--short", "HEAD"],
@@ -112,8 +122,7 @@ class Runner:
             "prompt_version": PROMPT_VERSION,
             "system_prompt": SYSTEM_PROMPT,
         }
-        with open(os.path.join(self.out_dir, "manifest.json"), "w",
-                  encoding="utf-8") as f:
+        with open(mpath, "w", encoding="utf-8") as f:
             json.dump(manifest, f, ensure_ascii=False, indent=2)
 
     def _append_csv(self, row, path, fields):
@@ -178,4 +187,5 @@ if __name__ == "__main__":
     import sys
     from dotenv import load_dotenv
     load_dotenv()
-    Runner(sys.argv[1]).run()
+    run_id = sys.argv[2] if len(sys.argv) > 2 else None  # 传 run_id 即续跑
+    Runner(sys.argv[1], run_id=run_id).run()

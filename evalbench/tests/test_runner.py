@@ -99,3 +99,61 @@ def test_runner_end_to_end(tmp_path):
     rows = list(csv.DictReader(open(summary, encoding="utf-8")))
     assert len(rows) == 1 and rows[0]["feasible"] == "1"
     assert os.path.exists(os.path.join(r.out_dir, "manifest.json"))
+
+
+def test_runner_resume_reuses_directory(tmp_path):
+    import yaml
+    cfg = {
+        "run_name": "ut",
+        "models": [{"name": "fake-model", "base_url": "http://x",
+                    "env_key": "LLM_API_KEY", "temperature": 0.7}],
+        "problems": [{"name": "tsp", "scales": ["small"]}],
+        "instances_per_scale": 2,
+        "repeats": 1,
+        "max_iters": 2,
+        "budget": {"max_calls": 3},
+    }
+    cfg_path = tmp_path / "cfg.yaml"
+    cfg_path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
+    out_root = str(tmp_path / "results")
+
+    class RefuseLLM:
+        model = "fake-model"
+
+        def chat(self, *a, **k):
+            raise AssertionError("续跑不应重复调用 LLM")
+
+    r1 = Runner(str(cfg_path), out_root=out_root)
+    r1.run(llm_factory=lambda m: FakeLLM(
+        ['{"tour": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]}']))
+    before_manifest = open(os.path.join(r1.out_dir, "manifest.json"),
+                           encoding="utf-8").read()
+
+    r2 = Runner(str(cfg_path), out_root=out_root, run_id=r1.run_id)
+    assert r2.out_dir == r1.out_dir
+    r2.run(llm_factory=lambda m: RefuseLLM())
+
+    rows = list(csv.DictReader(open(
+        os.path.join(r2.out_dir, "summary.csv"), encoding="utf-8")))
+    assert len(rows) == 2
+    after_manifest = open(os.path.join(r2.out_dir, "manifest.json"),
+                          encoding="utf-8").read()
+    assert before_manifest == after_manifest
+
+
+def test_runner_resume_rejects_unknown_dir(tmp_path):
+    import yaml
+    import pytest
+    cfg = {
+        "run_name": "ut",
+        "models": [{"name": "fake-model", "base_url": "http://x",
+                    "env_key": "LLM_API_KEY", "temperature": 0.7}],
+        "problems": [{"name": "tsp", "scales": ["small"]}],
+        "instances_per_scale": 1,
+        "repeats": 1,
+    }
+    cfg_path = tmp_path / "cfg.yaml"
+    cfg_path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
+    with pytest.raises(FileNotFoundError):
+        Runner(str(cfg_path), out_root=str(tmp_path / "results"),
+               run_id="nonexistent")
