@@ -5,3 +5,5 @@ results/
 *.pdf
 _md/
 .pytest_cache/
+node_modules/
+.trae-html-share-packages/
