@@ -6,7 +6,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-plt.rcParams["font.sans-serif"] = ["Microsoft YaHei"]  # Windows 中文字体
+plt.rcParams["font.sans-serif"] = [  # 跨平台中文回退链
+    "Microsoft YaHei",      # Windows
+    "Noto Sans CJK SC",     # Ubuntu (fonts-noto-cjk)
+    "PingFang SC",          # macOS
+    "SimHei",               # Windows 备选
+    "DejaVu Sans",
+]
 plt.rcParams["axes.unicode_minus"] = False
 
 # 元 / 1M tokens（输入, 输出）——运行当日到官网核对并更新注释日期
